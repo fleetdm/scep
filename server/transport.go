@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	stderrs "errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -150,7 +151,13 @@ func (e *BadRequestError) StatusCode() int { return http.StatusBadRequest }
 func encodeSCEPResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	resp := response.(SCEPResponse)
 	if resp.Err != nil {
-		http.Error(w, resp.Err.Error(), http.StatusInternalServerError)
+		status := http.StatusInternalServerError
+		var esc kithttp.StatusCoder
+		if stderrs.As(resp.Err, &esc) {
+			status = esc.StatusCode()
+		}
+
+		http.Error(w, resp.Err.Error(), status)
 		return nil
 	}
 	w.Header().Set("Content-Type", contentHeader(resp.operation, resp.CACertNum))

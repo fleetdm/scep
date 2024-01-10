@@ -186,6 +186,18 @@ func TestInvalidReqs(t *testing.T) {
 	if resp.StatusCode != 400 {
 		t.Error("expected", http.StatusBadRequest, "got", resp.StatusCode)
 	}
+
+	params = req.URL.Query()
+	params.Set("operation", "InvalidOperation")
+	req.URL.RawQuery = params.Encode()
+
+	resp, err = http.DefaultClient.Do(postReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Error("expected", http.StatusBadRequest, "got", resp.StatusCode)
+	}
 }
 
 func newServer(t *testing.T, opts ...scepserver.ServiceOption) (*httptest.Server, scepserver.Service, func()) {

@@ -123,6 +123,71 @@ func TestPKIOperationGET(t *testing.T) {
 	}
 }
 
+func TestInvalidReqs(t *testing.T) {
+	server, _, teardown := newServer(t)
+	defer teardown()
+	// Check that invalid requests return status 400.
+	req, err := http.NewRequest("GET", server.URL+"/scep", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Error("expected", http.StatusBadRequest, "got", resp.StatusCode)
+	}
+
+	req, err = http.NewRequest("GET", server.URL+"/scep", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	params := req.URL.Query()
+	params.Set("operation", "PKIOperation")
+	params.Set("message", "")
+	req.URL.RawQuery = params.Encode()
+
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Error("expected", http.StatusBadRequest, "got", resp.StatusCode)
+	}
+
+	params = req.URL.Query()
+	params.Set("operation", "InvalidOperation")
+	req.URL.RawQuery = params.Encode()
+
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Error("expected", http.StatusBadRequest, "got", resp.StatusCode)
+	}
+
+	postReq, err := http.NewRequest("POST", server.URL+"/scep", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	params = req.URL.Query()
+	params.Set("operation", "PKIOperation")
+	req.URL.RawQuery = params.Encode()
+
+	resp, err = http.DefaultClient.Do(postReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Error("expected", http.StatusBadRequest, "got", resp.StatusCode)
+	}
+}
+
 func newServer(t *testing.T, opts ...scepserver.ServiceOption) (*httptest.Server, scepserver.Service, func()) {
 	var err error
 	var depot depot.Depot // cert storage

@@ -11,7 +11,6 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	httptransport "github.com/go-kit/kit/transport/http"
-	"github.com/pkg/errors"
 )
 
 // possible SCEP operations
@@ -144,7 +143,7 @@ func MakeSCEPEndpoint(svc Service) endpoint.Endpoint {
 		case "PKIOperation":
 			resp.Data, resp.Err = svc.PKIOperation(ctx, req.Message)
 		default:
-			return nil, errors.New("operation not implemented")
+			return nil, &BadRequestError{Message: "operation not implemented"}
 		}
 		return resp, nil
 	}

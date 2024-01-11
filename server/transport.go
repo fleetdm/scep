@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	stderrs "errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -85,6 +86,11 @@ func decodeSCEPRequest(ctx context.Context, r *http.Request) (interface{}, error
 	}
 	defer r.Body.Close()
 
+	operation := r.URL.Query().Get("operation")
+	if len(operation) == 0 {
+		return nil, &BadRequestError{Message: "missing operation"}
+	}
+
 	request := SCEPRequest{
 		Message:   msg,
 		Operation: r.URL.Query().Get("operation"),
@@ -104,11 +110,21 @@ func message(r *http.Request) ([]byte, error) {
 		}
 		op := q.Get("operation")
 		if op == "PKIOperation" {
+			if len(msg) == 0 {
+				return nil, &BadRequestError{Message: "missing PKIOperation message"}
+			}
+
 			msg2, err := url.PathUnescape(msg)
 			if err != nil {
-				return nil, err
+				return nil, &BadRequestError{Message: fmt.Sprintf("invalid PKIOperation message: %s", msg)}
 			}
-			return base64.StdEncoding.DecodeString(msg2)
+
+			decoded, err := base64.StdEncoding.DecodeString(msg2)
+			if err != nil {
+				return nil, &BadRequestError{Message: fmt.Sprintf("failed to base64 decode message: %s: %s", err.Error(), msg2)}
+			}
+
+			return decoded, nil
 		}
 		return []byte(msg), nil
 	case "POST":
@@ -118,11 +134,30 @@ func message(r *http.Request) ([]byte, error) {
 	}
 }
 
+// BadRequestError is an error type that generates a 400 status code.
+type BadRequestError struct {
+	Message string
+}
+
+// Error returns the error message.
+func (e *BadRequestError) Error() string {
+	return e.Message
+}
+
+// StatusCode implements the kithttp StatusCoder interface
+func (e *BadRequestError) StatusCode() int { return http.StatusBadRequest }
+
 // EncodeSCEPResponse writes a SCEP response back to the SCEP client.
 func encodeSCEPResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	resp := response.(SCEPResponse)
 	if resp.Err != nil {
-		http.Error(w, resp.Err.Error(), http.StatusInternalServerError)
+		status := http.StatusInternalServerError
+		var esc kithttp.StatusCoder
+		if stderrs.As(resp.Err, &esc) {
+			status = esc.StatusCode()
+		}
+
+		http.Error(w, resp.Err.Error(), status)
 		return nil
 	}
 	w.Header().Set("Content-Type", contentHeader(resp.operation, resp.CACertNum))

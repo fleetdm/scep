@@ -72,6 +72,9 @@ func (svc *service) GetCACert(ctx context.Context, _ string) ([]byte, int, error
 }
 
 func (svc *service) PKIOperation(ctx context.Context, data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, &BadRequestError{Message: "missing data for PKIOperation"}
+	}
 	msg, err := scep.ParsePKIMessage(data, scep.WithLogger(svc.debugLogger))
 	if err != nil {
 		return nil, err
